@@ -240,11 +240,18 @@ def render_testing():
     st.markdown(f"### {ear_label} — {freq} Hz — {db} dB")
     st.caption("Le son va être joué automatiquement. Écoutez attentivement.")
 
-    # Audio widget — la clé audio_key est incrémentée à chaque essai
-    # pour forcer Streamlit à créer un nouveau widget (et donc rejouer le son)
+    # Audio widget — on encode le WAV en base64 et on injecte un <audio autoplay>
+    # via st.components pour forcer la lecture à chaque essai sans dépendre du
+    # paramètre key= (non supporté par toutes les versions de Streamlit)
+    import base64
+    import streamlit.components.v1 as components
     wav_bytes = make_wav_bytes(freq, db, ear)
-    st.audio(wav_bytes, format="audio/wav", autoplay=True,
-             key=f"audio_{st.session_state.audio_key}")
+    b64 = base64.b64encode(wav_bytes).decode()
+    components.html(
+        f'<audio autoplay><source src="data:audio/wav;base64,{b64}" type="audio/wav"></audio>',
+        height=0,
+    )
+    st.audio(wav_bytes, format="audio/wav")
 
     st.markdown("---")
     st.markdown("### Avez-vous entendu ce son ?")
