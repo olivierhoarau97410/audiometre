@@ -240,21 +240,88 @@ def render_testing():
     st.markdown(f"### {ear_label} — {freq} Hz — {db} dB")
     st.caption("Le son va être joué automatiquement. Écoutez attentivement.")
 
-    # Audio widget — on encode le WAV en base64 et on injecte un <audio autoplay>
-    # via st.components pour forcer la lecture à chaque essai sans dépendre du
-    # paramètre key= (non supporté par toutes les versions de Streamlit)
+    # ── Génération et lecture audio ──────────────────────────────────────────
     import base64
     import streamlit.components.v1 as components
     wav_bytes = make_wav_bytes(freq, db, ear)
     b64 = base64.b64encode(wav_bytes).decode()
-    components.html(
-        f'<audio autoplay><source src="data:audio/wav;base64,{b64}" type="audio/wav"></audio>',
-        height=0,
-    )
-    st.audio(wav_bytes, format="audio/wav")
 
+    # Injection HTML : autoplay invisible + timer JS qui affiche le statut
+    audio_duration_ms = int(DURATION_S * 1000)
+    components.html(
+        f"""
+        <style>
+          #status-box {{
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 18px;
+            border-radius: 10px;
+            font-family: sans-serif;
+            font-size: 15px;
+            font-weight: 600;
+            background: #FFF3CD;
+            border: 1.5px solid #FBBF24;
+            color: #92400E;
+            transition: background 0.4s, border 0.4s, color 0.4s;
+          }}
+          #status-box.done {{
+            background: #D1FAE5;
+            border-color: #34D399;
+            color: #065F46;
+          }}
+          .spinner {{
+            width: 18px; height: 18px;
+            border: 3px solid #FBBF24;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+          }}
+          .done-icon {{ font-size: 20px; }}
+          @keyframes spin {{ to {{ transform: rotate(360deg); }} }}
+        </style>
+
+        <audio id="myaudio" autoplay>
+          <source src="data:audio/wav;base64,{b64}" type="audio/wav">
+        </audio>
+
+        <div id="status-box">
+          <div class="spinner" id="spinner"></div>
+          <span id="status-text">⏳ Son en cours d'émission…</span>
+        </div>
+
+        <script>
+          var duration = {audio_duration_ms};
+          var box = document.getElementById('status-box');
+          var txt = document.getElementById('status-text');
+          var spn = document.getElementById('spinner');
+
+          // Tenter de lancer la lecture si autoplay bloqué
+          var audio = document.getElementById('myaudio');
+          audio.play().catch(function() {{}});
+
+          setTimeout(function() {{
+            box.classList.add('done');
+            spn.style.display = 'none';
+            txt.textContent = '✅ Son émis — répondez ci-dessous !';
+          }}, duration + 100);
+        </script>
+        """,
+        height=60,
+    )
+
+    # Bouton play de secours + explication
+    with st.expander("🔇 Le son ne s'est pas lancé automatiquement ? Cliquez ici"):
+        st.info(
+            "Certains navigateurs bloquent la lecture automatique. "
+            "Utilisez le bouton ▶️ ci-dessous pour lancer le son manuellement, "
+            "puis répondez avec les boutons verts/rouges."
+        )
+        st.audio(wav_bytes, format="audio/wav")
+
+    # ── Boutons de réponse ────────────────────────────────────────────────────
     st.markdown("---")
-    st.markdown("### Avez-vous entendu ce son ?")
+    st.markdown("### 👂 Avez-vous entendu ce son ?")
 
     col1, col2 = st.columns(2)
     with col1:
